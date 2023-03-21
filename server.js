@@ -1,6 +1,26 @@
 const express = require('express');
 const bcrypt = require('bcrypt-nodejs');
 const cors = require('cors');
+const knex = require('knex');
+
+const db = knex({
+  client: 'pg',
+  connection: {
+    host : '127.0.0.1',
+    port : 5432,
+    user : 'postgres',
+    password : 'RapedByAliens',
+    database : 'Smart_Brain_DB'
+  }
+});
+
+/*db.select('*')
+  .from('Users')
+  .then(data => {
+  	console.log(data)
+  });*/
+
+  
 
 const app = express();
 app.use(express.json());
@@ -44,47 +64,41 @@ app.post('/signin',(req, res) => {
 
 
 app.post('/register',(req, res) => {
-	database.users.push({
-		id: '345',
-		name: req.body.name,
-		email: req.body.email,
-		password: req.body.password,
-		entries: 0,
-		joined: new Date()
-	})
-	res.json(database.users[database.users.length-1])
+	db('Users').returning('*').insert({
+		Name: req.body.name,
+		Email: req.body.email,
+		Joined: new Date()
+	}).then(response => {
+		res.json(response)
+	}).catch(err => res.status(400).json(err))
+	
 })
 
 
 app.get('/profile/:id', (req,res) => {
 	let id = req.params.id;
-	let found = false;
-	database.users.forEach(user => {
-		if(user.id === id){
-			found = true;
-			return res.json(user);
+	db.select('*').from('Users').where({UserID: id})
+	.then(user=>{
+		if(user.length){
+			res.json(user);
+		}else{
+			res.status(400).json('user not found')
 		}
 	})
-if (found === false){
-		res.status(404).json('no such user');
-		}
 })
 
 
 
 app.put('/image', (req , res) =>{
 	let id = req.body.id;
-	let found = false;
-	database.users.forEach(user=>{
-		if (user.id === id){
-			found = true;
-			user.entries++;
-			return res.json(user.entries)
-		}
-	})
-	if (found === false){
-		res.status(404).json('user not found');
-	}
+	db('Users')
+  .where('UserID','=',id)
+  .increment('Entries',1)
+  .returning('Entries')
+  .then(entries => {
+  	res.json(entries[0].Entries)
+  })
+  .catch(err => res.status(400).json(err))
 })
 
 
