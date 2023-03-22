@@ -29,40 +29,32 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const database = {
-	users: [
-	{
-		id: '123',
-		name: 'John',
-		email: 'elviocorona@mail.com',
-		password: 'cookies',
-		entries: 0,
-		joined: new Date()
-	},
-	{
-		id: '234',
-		name: 'Sally',
-		email: 'sally@mail.com',
-		password: 'banana',
-		entries: 0,
-		joined: new Date()
-	}
-  ]
-}
-
 
 app.get('/', (req , res) => {
-	res.send(database.users);
+	db.select('*').from('Users')
+	.then(data=>{
+	res.json(data);
+	}).catch(err => res.status(400).json(err))
 })
 
 
 app.post('/signin',(req, res) => {
-	if (req.body.email === database.users[0].email &&
-		req.body.password === database.users[0].password){
-		res.json(database.users[0]);
-	}else{
-		res.status(400).json('user not found');
-	}
+	db.select('email','hash').from('Login')
+	.where('email', '=', req.body.email)
+	.then(data=>{
+		const isValid = bcrypt.compareSync(req.body.password, data[0].hash);
+		if (isValid){
+			return db.select('*').from('Users')
+			.where('Email','=', req.body.email)
+			.then(user => {
+				res.json(user[0])
+			})
+			.catch(err => res.status(400).json('unable to find user'))
+		}else{
+			res.status(400).json('wrong credentials')
+		}
+	})
+	.catch(err => res.status(400).json('wrong credentials'))
 })
 
 
@@ -71,15 +63,16 @@ app.post('/register',(req, res) => {
 	var hash = bcrypt.hashSync(myPlaintextPassword);
 	db.transaction(trx=> {
 		trx.insert({
-			hash: hash,
-			email: req.body.email
-		}).into('Login')
-		.returning('email')
-		.then(loginEmail => {
-	      return trx('Users').returning('*').insert({
-		    Name: req.body.name,
-		    Email: loginEmail[0],
-		    Joined: new Date()
+			Name: req.body.name,
+			Email: req.body.email,
+			Joined: new Date()
+		}).into('Users')
+		.returning('*')
+		.then(data => {
+	      return trx('Login').returning('*').insert({
+		    hash: hash,
+		    email: data[0].Email,
+		    UserID: data[0].UserID
 	         }).then(response => {
 		       res.json(response);
 		})
