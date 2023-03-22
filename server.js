@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt-nodejs');
+/*const bcrypt = require('bcrypt');*/
 const cors = require('cors');
 const knex = require('knex');
 
@@ -20,7 +21,9 @@ const db = knex({
   	console.log(data)
   });*/
 
-  
+ 
+
+const someOtherPlaintextPassword = 'not_bacon';
 
 const app = express();
 app.use(express.json());
@@ -64,15 +67,28 @@ app.post('/signin',(req, res) => {
 
 
 app.post('/register',(req, res) => {
-	db('Users').returning('*').insert({
-		Name: req.body.name,
-		Email: req.body.email,
-		Joined: new Date()
-	}).then(response => {
-		res.json(response)
-	}).catch(err => res.status(400).json(err))
-	
+	const myPlaintextPassword = req.body.password;
+	var hash = bcrypt.hashSync(myPlaintextPassword);
+	db.transaction(trx=> {
+		trx.insert({
+			hash: hash,
+			email: req.body.email
+		}).into('Login')
+		.returning('email')
+		.then(loginEmail => {
+	      return trx('Users').returning('*').insert({
+		    Name: req.body.name,
+		    Email: loginEmail[0],
+		    Joined: new Date()
+	         }).then(response => {
+		       res.json(response);
+		})
+	})
+		.then(trx.commit)
+		.catch(trx.rollback)
+}).catch(err => res.status(400).json(err))
 })
+	
 
 
 app.get('/profile/:id', (req,res) => {
