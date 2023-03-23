@@ -74,7 +74,7 @@ app.post('/register',(req, res) => {
 		    email: data[0].Email,
 		    UserID: data[0].UserID
 	         }).then(response => {
-		       res.json(response);
+		       res.json(response[0]);
 		})
 	})
 		.then(trx.commit)
